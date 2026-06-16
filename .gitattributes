@@ -1,0 +1,5 @@
+# Normalize all text files to LF in the repository
+* text=auto eol=lf
+
+# Windows-native PowerShell scripts stay CRLF on checkout
+*.ps1 text eol=crlf

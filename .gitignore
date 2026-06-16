@@ -1,0 +1,10 @@
+# Handoff runtime state — never part of the template
+.handoff-runtime/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
