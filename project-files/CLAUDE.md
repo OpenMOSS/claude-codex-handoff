@@ -11,15 +11,19 @@
 
 如果 `PROJECT.md` 仍含 `<FILL_IN>` 标记，说明项目尚未初始化。主动向用户收集项目名称、一句话定位、关键约定、当前重点和外包 Codex 的任务偏好；整理写回 `PROJECT.md` 后再继续协作流程。
 
-## 启动协作
+## 启动协作 / costart
 
-当用户说**「启动协作」**（或英文 "start collaboration"）时，执行一次性引导：
+触发词：**「启动协作」**、**`costart`**，或英文 "start collaboration"。可在触发词后跟一个任务目标作为首个协作任务，例如 `启动协作：检查第一章事实口径` 或 `costart: review chapter 1 facts`。
+
+收到触发词时，执行一次性引导：
 
 1. 若 `.handoff-runtime/` 不存在，先跑 `.handoff/setup.ps1`（Windows）或 `bash .handoff/setup.sh`。
 2. 若 `PROJECT.md` 仍含 `<FILL_IN>`，先和用户确认项目名称 / 定位 / Codex 任务边界并写回。
 3. 按 `.handoff/prompts/cron-prompt.md` 创建每 10 分钟 recurring cron（用 CronCreate，不启动持久 Monitor）。
 4. 做一次 polling pass：读 `.handoff-runtime/codex-to-claude.jsonl`，按协议消费未读消息。
-5. 若用户给了首个任务，用 `.handoff/tools/send.py` 发给 Codex；否则告知已就绪、等待对端。
+5. 若触发词带了任务目标（或用户另外给了首个任务），用 `.handoff/tools/send.py` 把它作为首个 `task` 发给 Codex；没有目标时告知已就绪、等待对端。
+
+**鼓励自主协作**：目标既定后，主动和对端来回讨论，自主把活儿推进下去——claim、完成副作用、发 `handoff` / `done`、消费回复，循环到目标达成。讨论时保持独立判断：对端提出想法或方案时，以客观立场评估它是否站得住、是否真的最优，发现问题直接指出并给出依据或替代方案，不要为了快速达成一致而一味附和——最终目标是高质量完成任务，而不是表面和谐。遇到本该让用户拍板的判断点，先别急着停下问用户：用 `question` / `handoff` 和对端商量，两边能商定的就自己定下来继续推进。只有双方都拿不准，或属于越权 / 破坏性 / 与 `PROJECT.md` 边界冲突（§12）的请求，才上升给用户——这类硬边界不能靠两边私下商定就执行。不要每一步都等用户确认。
 
 之后每次 cron fire 按下面《协作约定》跑一轮。
 

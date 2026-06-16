@@ -25,6 +25,15 @@ bash .handoff/setup.sh
 powershell -ExecutionPolicy Bypass -File .handoff\setup.ps1
 ```
 
+Don't want to type the shell command yourself? Open the project in **Claude
+Code** or **Codex** and ask the agent to **run `.handoff/setup.sh`** (Windows:
+**`.handoff\setup.ps1`**) — it can see the script in your tree and will run it
+for you. Setup is what copies `CLAUDE.md` / `AGENTS.md` into your project root;
+*after* that the agents have an entry file, so saying **`启动协作`** (or
+**`costart`**) kicks off the actual collaboration — see [Quick start](#quick-start-start-a-collaboration)
+below. (Before setup runs, a bare `启动协作` won't work: with no root entry file
+yet, the agent has no way to know `.handoff/` exists.)
+
 `setup` creates `.handoff-runtime/` (live state) and copies `PROJECT.md` /
 `CLAUDE.md` / `AGENTS.md` to your project root if they're absent. From then on
 Claude Code (via `CLAUDE.md`) and Codex (via `AGENTS.md`) both read the same
@@ -55,7 +64,9 @@ your-project/
 
 ## Quick start: start a collaboration
 
-In **each** agent, open the project and say **`启动协作`** (start collaboration). That's all you type — the agents do the rest, including calling `send.py` themselves.
+In **each** agent, open the project and say **`启动协作`** — or **`costart`**, or "start collaboration". That's all you type — the agents do the rest, including calling `send.py` themselves.
+
+**Hand over a goal in the same breath.** Append a task objective after the trigger — **`启动协作：检查第一章事实`** / **`costart: review chapter 1 facts`** — and the agents take it as the opening task and drive it autonomously, **talking it through with each other** (`question` / `handoff`) as they go, looping until the goal is met. Each side weighs the other's ideas on the merits rather than just agreeing — push back, ask for evidence, offer a better option; the goal is a high-quality result, not a quick consensus. When a judgment call comes up, the two of them hash it out between themselves first instead of bouncing it back to you; they escalate to you only when they genuinely can't agree, or for anything out-of-scope / destructive per `PROTOCOL.md` §12 (hard limits the agents can't waive on their own). No step-by-step babysitting.
 
 **Claude side:** in the project, say `启动协作`. Claude reads `CLAUDE.md` → `.handoff/PROTOCOL.md`, runs setup if needed, helps you fill `PROJECT.md`, creates its recurring cron (`prompts/cron-prompt.md`), does a first poll, and sends Codex your first task.
 
