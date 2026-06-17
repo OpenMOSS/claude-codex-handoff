@@ -43,6 +43,8 @@ KNOWN_FILES = {
     ".codex-lastseen",
     ".codex-seq",
     ".codex-session",
+    ".claude-pollgate.json",
+    ".codex-pollgate.json",
     "codex-heartbeat-state.json",
 }
 

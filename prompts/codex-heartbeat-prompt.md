@@ -2,7 +2,24 @@
 
 Use this prompt for the Codex App heartbeat attached to the current thread.
 
-Run exactly one passive handoff polling pass:
+Run exactly one passive handoff polling pass.
+
+**Step 0 - Deterministic pre-gate.** Before any reasoning, run the read-only gate to decide whether this fire needs the model at all (it resolves the session id the same way `send.py` does — env / `.handoff-runtime/.codex-session` / `codex-default` — so it can run before Step 2):
+
+```
+python .handoff/tools/poll-gate.py --side codex --proactive-every 3 --quiet
+```
+
+`--proactive-every N` is a tunable knob: raise `N` for less frequent proactive reviews when idle, or set `0` to disable proactive entirely (the gate then only decides process vs idle).
+
+It is deterministic — trust its exit code, do not re-derive idle/active with your own scan:
+
+- exit `0` (process) — unread messages are addressed to me. Do the full pass: steps 1 through 7.
+- exit `10` (proactive) — no unread for me, but a bounded proactive-review tick is due. Do steps 1-2 setup only, then the step 5 proactive review (report at most one high-signal finding, stay silent if none), then step 7 cadence, then exit.
+- exit `20` (idle) — nothing for me and no proactive tick due. Do not process and do not review: apply the step 7 cadence update and exit quietly. This idle path needs no further model judgment.
+- exit `2` (error) — runtime missing or misconfigured; surface it to the user instead of proceeding.
+
+For the step 7 adaptive-cadence rule, treat exit `0` as `had_peer_reply=true` and exit `10` / `20` as `had_peer_reply=false`.
 
 1. Read `PROJECT.md`, `AGENTS.md`, `.handoff/PROTOCOL.md`, `.handoff-runtime/.codex-session` if present, `.handoff-runtime/.codex-seq`, and `.handoff-runtime/claude-to-codex.jsonl`. Resolve this session's cursor `.handoff-runtime/cursors/codex-<MY_SESSION>` (if absent, seed from legacy `.handoff-runtime/.codex-cursor`, else `0`). Optionally stamp `.handoff-runtime/.codex-lastseen` with the current UTC time (atomic write).
 2. Resolve `MY_SESSION` according to `.handoff/PROTOCOL.md` §3.1. If `.handoff-runtime/.codex-session` is absent, use `codex-default` for this run.
@@ -22,6 +39,7 @@ Run exactly one passive handoff polling pass:
    - If a peer `done` is wrong or incomplete, send a new `handoff` / `question` that references it. Do not reply to `done` with another `done`.
    - Use `.handoff/tools/send.py --side codex` for outbound messages whenever possible.
    - Long outputs must go through `.handoff-runtime/notes/<message-id>.md` and be referenced from outbound `refs.notes_file`.
+   - If this run makes a large or user-visible change, follow `.handoff/PROTOCOL.md` §6.5 before advancing the relevant cursor: finish local verification, then send Claude a `handoff` requesting review and listing `context_files`, `files_changed`, verification, and specific review questions. Do not use a `status` message as the only notification for a large change.
 5. If there are no unread messages after cursor, run one bounded proactive review pass before ending:
    - Keep it read-only for source files. Do not edit source code, configuration, `PROJECT.md`, `AGENTS.md`, `CLAUDE.md`, or other project files.
    - Prefer small high-signal checks: outline/structure consistency, stale cross-references, naming red lines, TODO/FIXME placeholders, duplicate identifiers, missing or duplicate definitions, unresolved references, obvious structure issues, or recently touched areas.
@@ -32,10 +50,10 @@ Run exactly one passive handoff polling pass:
    - If no concrete issue is found, keep the run quiet. Do not send idle heartbeat messages.
 6. Do not proactively assign broad drafting or restructuring work to Claude. Proactive output should be limited to concrete review findings, consistency bugs, or narrowly scoped optimization suggestions discovered during the bounded pass.
 7. Adaptive cadence is runtime-only and must not use local background processes:
-   - Treat the run as `had_task=true` if there were unread c2x messages, an in-flight claim was resumed, a lease-bearing message was claimed, or any inbound message was consumed. A pure proactive review after an empty queue is `had_task=false`.
-   - Maintain `.handoff-runtime/codex-heartbeat-state.json` with at least `consecutive_idle`, `current_interval_minutes`, `last_run_had_task`, and `updated_at`.
-   - If `had_task=false`, increment `consecutive_idle`; when it reaches 2, increase the heartbeat interval by 10 minutes, reset `consecutive_idle` to 0, write the state file, and update the heartbeat automation (the Codex App automation you created for this project, e.g. `codex-handoff-monitor`) to the new minute interval.
-   - If `had_task=true`, reset `consecutive_idle` to 0, reduce the heartbeat interval by 10 minutes down to the minimum interval of 10 minutes, write the state file, and update the heartbeat automation only if the interval changed.
+   - Treat the run as `had_peer_reply=true` if there were unread c2x messages from Claude, an in-flight Claude message was resumed, a lease-bearing Claude message was claimed, or any inbound Claude message was consumed. A pure proactive review after an empty queue is `had_peer_reply=false`.
+   - Maintain `.handoff-runtime/codex-heartbeat-state.json` with at least `current_interval_minutes`, `last_run_had_peer_reply`, and `updated_at`; `consecutive_idle` may remain for legacy diagnostics but is not used as a threshold.
+   - If `had_peer_reply=false`, increase the heartbeat interval by 10 minutes after this single loop, write the state file, and update the heartbeat automation (the Codex App automation you created for this project, e.g. `codex-handoff-monitor`) to the new minute interval.
+   - If `had_peer_reply=true`, reduce the heartbeat interval by 10 minutes down to the minimum interval of 10 minutes, write the state file, and update the heartbeat automation only if the interval changed.
    - Use `codex_app.automation_update` for schedule changes, preserving the existing heartbeat name, kind, target thread, status, and prompt. Do not create Task Scheduler jobs, `Start-Job`, `Start-Process`, `pythonw`, detached workers, or file watchers.
    - Apply cadence changes after all required handoff side effects and cursor updates. Keep cadence-only changes quiet unless a tool failure needs user attention.
 

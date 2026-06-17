@@ -54,6 +54,7 @@ your-project/
 │   ├── tools/send.py               # protocol-safe JSONL sender (stdlib only)
 │   ├── tools/archive.py            # consumed-stream archive helper
 │   ├── tools/doctor.py             # read-only runtime diagnostics
+│   ├── tools/poll-gate.py          # deterministic wake/idle pre-gate (no model call)
 │   ├── project-files/              # PROJECT.md / CLAUDE.md / AGENTS.md templates
 │   └── prompts/                    # cron-prompt.md (Claude) / codex-heartbeat-prompt.md (Codex)
 ├── .handoff-runtime/               # message streams, per-session cursors, claims, notes (gitignore)

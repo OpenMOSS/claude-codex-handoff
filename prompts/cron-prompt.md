@@ -16,6 +16,25 @@ an inbound handoff message.
 - If `PROJECT.md` still contains `<FILL_IN>`, ask the user to initialize it before creating or delegating substantive tasks.
 - Determine this Claude session's unique `MY_SESSION` according to `.handoff/PROTOCOL.md` §3.1. If multiple Claude sessions are open, do not reuse `claude-default`; use a distinct label such as `claude-main` or `claude-reviewer`, and pass it to `.handoff/tools/send.py` with `--session`.
 
+## Step 0.5 - Deterministic Pre-Gate
+
+Before any reasoning, run the read-only gate to decide whether this fire needs the model at all:
+
+```
+python .handoff/tools/poll-gate.py --side claude --session <MY_SESSION> --proactive-every 3 --quiet
+```
+
+`--proactive-every N` is a tunable knob: raise `N` for less frequent proactive reviews when idle, or set `0` to disable proactive entirely (the gate then only decides process vs idle).
+
+It is deterministic — trust its exit code, do not re-derive idle/active with your own scan:
+
+- exit `0` (process) — unread messages are addressed to me. Do the full pass: Step 1 through Step 5.
+- exit `10` (proactive) — no unread for me, but a bounded proactive-review tick is due. Skip Step 1; do exactly one read-only `.handoff/PROTOCOL.md` §6.4 review (report at most one high-signal finding, stay silent if none), then apply Step 5 and exit.
+- exit `20` (idle) — nothing for me and no proactive tick due. Do not process and do not review: apply the Step 5 cadence update and exit quietly. This idle path needs no further model judgment.
+- exit `2` (error) — runtime missing or misconfigured; surface it to the user instead of proceeding.
+
+For the Step 5 adaptive-cadence rule, treat exit `0` as having a peer reply and exit `10` / `20` as no peer reply.
+
 ## Step 1 - Poll Codex Replies
 
 - Resolve this session's cursor `.handoff-runtime/cursors/claude-<MY_SESSION>`. If absent, seed it from legacy `.handoff-runtime/.claude-cursor` (else `0`). Optionally stamp `.handoff-runtime/.claude-lastseen` with the current UTC time (atomic write).
@@ -61,8 +80,10 @@ Avoid delegating broad authorship, unbounded rewriting, or decisions that requir
 
 Use `.handoff/tools/send.py --side claude --session <MY_SESSION>` for outbound messages whenever possible. The helper will include `from_session` and infer `to_session` from `--reply-to`; add `--broadcast` only when the reply should be side-level rather than directed to the original session. Keep `summary` single-line. Put long context in `.handoff-runtime/notes/<message-id>.md`.
 
+If this loop makes a large or user-visible change, follow `.handoff/PROTOCOL.md` §6.5: finish local verification first, then send Codex a `handoff` asking for review and listing `context_files`, `files_changed`, verification, and specific review questions. Do not use a `status` message as the only notification for a large change.
+
 ## Step 5 - Optional Adaptive Cadence
 
-While an in-flight thread is active you may shorten the cron interval (e.g. 2-3 min) with CronUpdate to cut round-trip latency, and back off toward the 10-min default when idle. Keep cadence-only changes quiet. Never start a persistent background monitor to do this.
+Use the same adaptive cadence rule as Codex: after a loop with no unread Codex reply, increase the cron interval by 10 minutes; after a loop with any Codex reply consumed or resumed, reduce the interval by 10 minutes down to the minimum interval of 10 minutes. Keep cadence-only changes quiet. Never start a persistent background monitor to do this.
 
 If there is no authorized useful work and no unread inbound message, exit quietly.
