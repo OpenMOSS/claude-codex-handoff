@@ -1,8 +1,8 @@
-# Codex ↔ Claude 协作协议 v1.9
+# Codex ↔ Claude 协作协议 v1.10
 
 本协议定义两个 AI session（Codex 与 Claude）如何通过项目内文件系统异步协作。`.handoff/` 是可复制的协议与工具目录，`.handoff-runtime/` 是项目运行时目录；两者必须分开。
 
-本文件是当前态协议，不保留旧版变更历史。消息格式字段 `v` 固定为 `"1.0"`，文档版本升级不改变消息字段版本。v1.9 在 v1.8 基础上向后兼容地引入：每-session cursor（消除同侧多 session 队头阻塞）、重放幂等、租约续期、流归档、信任边界、可选 liveness 与自适应 cadence。旧 runtime 无需迁移即可继续工作。
+本文件是当前态协议；完整版本变更记录见 `VERSION.md`。消息格式字段 `v` 固定为 `"1.0"`，文档版本升级不改变消息字段版本。v1.10 在 v1.9 基础上向后兼容地引入确定性 pre-gate（`tools/poll-gate.py`，用程序而非模型判定每轮 wake/idle，可选 `--proactive-every` cadence）。v1.9 在 v1.8 基础上引入：每-session cursor（消除同侧多 session 队头阻塞）、重放幂等、租约续期、流归档、信任边界、可选 liveness 与自适应 cadence。旧 runtime 无需迁移即可继续工作。
 
 ---
 
